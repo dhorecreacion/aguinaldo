@@ -1,0 +1,276 @@
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="UTF-8">
+    <title>Entrega de Aguinaldos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+    body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 16px;
+    background: #f5f5f9;
+    }
+    h2 { margin-bottom: 6px; }
+
+    .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    max-width: 430px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 16px;
+    }
+
+    label {
+    font-size: 0.85rem;
+    display: block;
+    margin-top: 8px;
+    }
+
+    input {
+    width: 95%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    margin-top: 4px;
+    }
+
+    button {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    background: #304ffe;
+    color: #fff;
+    }
+
+    button.secondary { background: #e0e0e0; color: #333; }
+    button.success { background: #00c853; }
+    button:disabled { background: #bdbdbd; }
+
+    .msg {
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    }
+    .msg.error { background: #ffebee; color: #b71c1c; }
+    .msg.ok { background: #e8f5e9; color: #1b5e20; }
+
+    .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2,1fr);
+    gap: 10px;
+    }
+    .stat-box {
+    background: #f5f7ff;
+    padding: 10px;
+    border-radius: 8px;
+    }
+    .stat-label { font-size: 0.75rem; color: #555; }
+    .stat-value { font-size: 1.4rem; font-weight: 700; }
+    hr { margin: 14px 0; }
+    </style>
+    </head>
+
+    <body>
+
+    <h2>Entrega de Aguinaldos</h2>
+    <p style="font-size:0.85rem;color:#666;">Buscar por DNI</p>
+
+    <!-- RESUMEN -->
+    <div class="card">
+    <h3>Resumen</h3>
+    <div class="stats-grid">
+        <div class="stat-box">
+        <div class="stat-label">Colaboradores</div>
+        <div class="stat-value" id="totColab">0</div>
+        </div>
+        <div class="stat-box">
+        <div class="stat-label">Con hijos</div>
+        <div class="stat-value" id="totHijos">0</div>
+        </div>
+        <div class="stat-box">
+        <div class="stat-label">Aguinaldos entregados</div>
+        <div class="stat-value" id="totAguinaldo">0</div>
+        </div>
+        <div class="stat-box">
+        <div class="stat-label">Panetones entregados</div>
+        <div class="stat-value" id="totPaneton">0</div>
+        </div>
+    </div>
+
+    <button id="btnExportar" class="secondary">Exportar CSV</button>
+    </div>
+
+    <!-- CONSULTA -->
+    <div class="card">
+    <label>DNI</label>
+    <input id="dniInput" placeholder="Ej: 10559647">
+    <button id="btnConsultar">Consultar</button>
+    <div id="resultado"></div>
+    </div>
+
+    <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    /* FIREBASE */
+    const firebaseConfig = {
+    apiKey: "AIzaSyAzq_xY_ne792xmhgDle_riU6qs471jjcw",
+    authDomain: "aguinaldos-d782e.firebaseapp.com",
+    databaseURL: "https://aguinaldos-d782e-default-rtdb.firebaseio.com",
+    projectId: "aguinaldos-d782e",
+    storageBucket: "aguinaldos-d782e.firebasestorage.app",
+    messagingSenderId: "600911662448",
+    appId: "1:600911662448:web:05908a9310528dcccf93b5"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    /* DOM */
+    const dniInput = document.getElementById("dniInput");
+    const btnConsultar = document.getElementById("btnConsultar");
+    const btnExportar = document.getElementById("btnExportar");
+    const resultado = document.getElementById("resultado");
+
+    const totColab = document.getElementById("totColab");
+    const totHijos = document.getElementById("totHijos");
+    const totAguinaldo = document.getElementById("totAguinaldo");
+    const totPaneton = document.getElementById("totPaneton");
+
+    /* CACHE */
+    let invitados = {};
+    let dniActual = null;
+
+    /* CARGA */
+    onValue(ref(db, "aguinaldo"), snap => {
+    invitados = snap.val() || {};
+
+    let col = 0, hijos = 0, ag = 0, pan = 0;
+
+    Object.values(invitados).forEach(r => {
+        col++;
+        if (r.HIJOS > 0) hijos++;
+        if (r.ENTREGA?.AGUINALDO?.ENTREGADO) ag++;
+        if (r.ENTREGA?.PANETON?.ENTREGADO) pan++;
+    });
+
+    totColab.textContent = col;
+    totHijos.textContent = hijos;
+    totAguinaldo.textContent = ag;
+    totPaneton.textContent = pan;
+    });
+
+    /* CONSULTA */
+    btnConsultar.onclick = () => {
+    const dni = dniInput.value.trim();
+    resultado.innerHTML = "";
+    dniActual = dni;
+
+    const r = invitados[dni];
+    if (!r) {
+        resultado.innerHTML = `<div class="msg error">DNI no registrado</div>`;
+        return;
+    }
+
+    const entrega = r.ENTREGA || {};
+    const hijos = Number(r.HIJOS || 0);
+
+    resultado.innerHTML = `
+        <p><strong>${r["APELLIDOS Y NOMBRES"]}</strong></p>
+        <p>Planilla: ${r.PLANILLA}</p>
+        <p>Aguinaldo: ${r.AGUINALDO}</p>
+        <p>Panetón grande: ${r.PANETON}</p>
+
+        <hr>
+
+        <label>Código Aguinaldo</label>
+        <input id="codAguinaldo" ${entrega.AGUINALDO?.ENTREGADO ? "disabled" : ""}>
+        <button id="btnAguinaldo" class="success" ${entrega.AGUINALDO?.ENTREGADO ? "disabled" : ""}>
+        ${entrega.AGUINALDO?.ENTREGADO ? "Aguinaldo entregado" : "Registrar aguinaldo"}
+        </button>
+
+        <button id="btnPaneton" class="success" ${entrega.PANETON?.ENTREGADO ? "disabled" : ""}>
+        ${entrega.PANETON?.ENTREGADO ? "Panetón entregado" : "Confirmar panetón"}
+        </button>
+
+        ${
+        hijos > 0 ? `
+            <hr>
+            <p><strong>Entrega por hijos (${hijos})</strong></p>
+            ${Array.from({ length: hijos }).map((_, i) => `
+            <input class="codHijo" placeholder="Código hijo ${i + 1}">
+            `).join("")}
+            <button id="btnHijos" class="success">Registrar entrega hijos</button>
+        ` : ""
+        }
+    `;
+
+    /* AGUINALDO */
+    if (!entrega.AGUINALDO?.ENTREGADO) {
+        document.getElementById("btnAguinaldo").onclick = async () => {
+        const cod = document.getElementById("codAguinaldo").value.trim();
+        if (!cod) return alert("Ingrese código");
+
+        await update(ref(db, `aguinaldo/${dni}/ENTREGA/AGUINALDO`), {
+            ENTREGADO: true,
+            CODIGO: cod,
+            FECHA: new Date().toISOString()
+        });
+
+        alert("Aguinaldo registrado ✔");
+        };
+    }
+
+    /* PANETON */
+    if (!entrega.PANETON?.ENTREGADO) {
+        document.getElementById("btnPaneton").onclick = async () => {
+        await update(ref(db, `aguinaldo/${dni}/ENTREGA/PANETON`), {
+            ENTREGADO: true,
+            FECHA: new Date().toISOString()
+        });
+
+        alert("Panetón registrado ✔");
+        };
+    }
+
+    /* HIJOS */
+    if (hijos > 0 && !entrega.HIJOS?.ENTREGADO) {
+        document.getElementById("btnHijos").onclick = async () => {
+        const codigos = [...document.querySelectorAll(".codHijo")].map(i => i.value.trim());
+        if (codigos.some(c => !c)) return alert("Complete todos los códigos");
+
+        await update(ref(db, `aguinaldo/${dni}/ENTREGA/HIJOS`), {
+            ENTREGADO: true,
+            CODIGOS: codigos,
+            PANETONCITOS: r.PANETONCITO,
+            SORPRESAS: r.SORPRESA,
+            FECHA: new Date().toISOString()
+        });
+
+        alert("Entrega por hijos registrada ✔");
+        };
+    }
+    };
+
+    /* EXPORTAR */
+    btnExportar.onclick = () => {
+    let csv = "DNI,NOMBRE,AGUINALDO,PANETON,HIJOS\n";
+    Object.entries(invitados).forEach(([dni, r]) => {
+        csv += `${dni},"${r["APELLIDOS Y NOMBRES"]}",${r.ENTREGA?.AGUINALDO?.ENTREGADO ? "SI" : "NO"},${r.ENTREGA?.PANETON?.ENTREGADO ? "SI" : "NO"},${r.HIJOS}\n`;
+    });
+
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = "reporte_aguinaldos.csv";
+    a.click();
+    };
+    </script>
+
+    </body>
+    </html>
