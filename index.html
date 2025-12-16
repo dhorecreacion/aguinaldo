@@ -58,7 +58,6 @@
     font-size: 0.85rem;
     }
     .msg.error { background: #ffebee; color: #b71c1c; }
-    .msg.ok { background: #e8f5e9; color: #1b5e20; }
 
     .stats-grid {
     display: grid;
@@ -102,8 +101,6 @@
         <div class="stat-value" id="totPaneton">0</div>
         </div>
     </div>
-
-    <button id="btnExportar" class="secondary">Exportar CSV</button>
     </div>
 
     <!-- CONSULTA -->
@@ -134,8 +131,6 @@
 
     /* DOM */
     const dniInput = document.getElementById("dniInput");
-    const btnConsultar = document.getElementById("btnConsultar");
-    const btnExportar = document.getElementById("btnExportar");
     const resultado = document.getElementById("resultado");
 
     const totColab = document.getElementById("totColab");
@@ -143,36 +138,40 @@
     const totAguinaldo = document.getElementById("totAguinaldo");
     const totPaneton = document.getElementById("totPaneton");
 
-    /* CACHE */
-    let invitados = {};
-    let dniActual = null;
+    let cache = [];
 
-    /* CARGA */
+    /* ======================
+    CARGA DE DATOS
+    ====================== */
     onValue(ref(db, "aguinaldo"), snap => {
-    invitados = snap.val() || {};
+    cache = [];
+    let col=0,h=0,a=0,p=0;
 
-    let col = 0, hijos = 0, ag = 0, pan = 0;
+    snap.forEach(c => {
+        const d = c.val();
+        d._dni = c.key;
+        cache.push(d);
 
-    Object.values(invitados).forEach(r => {
         col++;
-        if (r.HIJOS > 0) hijos++;
-        if (r.ENTREGA?.AGUINALDO?.ENTREGADO) ag++;
-        if (r.ENTREGA?.PANETON?.ENTREGADO) pan++;
+        if (d.HIJOS > 0) h++;
+        if (d.ENTREGA?.AGUINALDO?.ENTREGADO) a++;
+        if (d.ENTREGA?.PANETON?.ENTREGADO) p++;
     });
 
     totColab.textContent = col;
-    totHijos.textContent = hijos;
-    totAguinaldo.textContent = ag;
-    totPaneton.textContent = pan;
+    totHijos.textContent = h;
+    totAguinaldo.textContent = a;
+    totPaneton.textContent = p;
     });
 
-    /* CONSULTA */
-    btnConsultar.onclick = () => {
+    /* ======================
+    CONSULTA
+    ====================== */
+    document.getElementById("btnConsultar").onclick = () => {
     const dni = dniInput.value.trim();
     resultado.innerHTML = "";
-    dniActual = dni;
 
-    const r = invitados[dni];
+    const r = cache.find(x => x._dni === dni);
     if (!r) {
         resultado.innerHTML = `<div class="msg error">DNI no registrado</div>`;
         return;
@@ -180,97 +179,142 @@
 
     const entrega = r.ENTREGA || {};
     const hijos = Number(r.HIJOS || 0);
+    const tarjetasEntregadas = entrega.HIJOS?.TARJETAS?.ENTREGADO;
+
+    let inputsHijos = "";
+    if (hijos > 0) {
+        for (let i = 1; i <= hijos; i++) {
+        inputsHijos += `
+            <label>Código tarjeta hijo ${i}</label>
+            <input class="codigoHijo"
+            data-hijo="${i}"
+            ${tarjetasEntregadas ? "disabled" : ""}
+            value="${tarjetasEntregadas ? (entrega.HIJOS?.TARJETAS?.CODIGOS?.[`hijo${i}`] || "") : ""}">
+        `;
+        }
+    }
 
     resultado.innerHTML = `
+
         <p><strong>${r["APELLIDOS Y NOMBRES"]}</strong></p>
         <p>Planilla: ${r.PLANILLA}</p>
         <p>Aguinaldo: ${r.AGUINALDO}</p>
         <p>Panetón grande: ${r.PANETON}</p>
 
         <hr>
-
         <label>Código Aguinaldo</label>
-        <input id="codAguinaldo" ${entrega.AGUINALDO?.ENTREGADO ? "disabled" : ""}>
-        <button id="btnAguinaldo" class="success" ${entrega.AGUINALDO?.ENTREGADO ? "disabled" : ""}>
-        ${entrega.AGUINALDO?.ENTREGADO ? "Aguinaldo entregado" : "Registrar aguinaldo"}
+        <input id="codAguinaldo" ${entrega.AGUINALDO?.ENTREGADO?"disabled":""}>
+        <button id="btnAguinaldo" class="success"
+        ${entrega.AGUINALDO?.ENTREGADO?"disabled":""}>
+        ${entrega.AGUINALDO?.ENTREGADO?"Aguinaldo entregado":"Registrar aguinaldo"}
         </button>
 
-        <button id="btnPaneton" class="success" ${entrega.PANETON?.ENTREGADO ? "disabled" : ""}>
-        ${entrega.PANETON?.ENTREGADO ? "Panetón entregado" : "Confirmar panetón"}
+        <button id="btnPaneton" class="success"
+        ${entrega.PANETON?.ENTREGADO?"disabled":""}>
+        ${entrega.PANETON?.ENTREGADO?"Panetón entregado":"Confirmar panetón"}
         </button>
 
-        ${
-        hijos > 0 ? `
-            <hr>
-            <p><strong>Entrega por hijos (${hijos})</strong></p>
-            ${Array.from({ length: hijos }).map((_, i) => `
-            <input class="codHijo" placeholder="Código hijo ${i + 1}">
-            `).join("")}
-            <button id="btnHijos" class="success">Registrar entrega hijos</button>
-        ` : ""
-        }
+        ${hijos > 0 ? `
+        <hr>
+        <strong>Tarjetas por hijo</strong>
+        ${inputsHijos}
+        <button id="btnTarjetasHijos" class="success"
+            ${tarjetasEntregadas ? "disabled" : ""}>
+            ${tarjetasEntregadas ? "Tarjetas hijos registradas" : "Registrar tarjetas hijos"}
+        </button>
+
+        <hr>
+        <strong>Otros</strong>
+        <button id="btnPanetoncito" class="success"
+            ${entrega.HIJOS?.PANETONCITO?.ENTREGADO?"disabled":""}>
+            ${entrega.HIJOS?.PANETONCITO?.ENTREGADO?"Panetoncitos entregados":"Confirmar panetoncitos"}
+        </button>
+
+        <button id="btnSorpresa" class="success"
+            ${entrega.HIJOS?.SORPRESA?.ENTREGADO?"disabled":""}>
+            ${entrega.HIJOS?.SORPRESA?.ENTREGADO?"Sorpresas entregadas":"Confirmar sorpresas"}
+        </button>
+        ` : ""}
     `;
 
     /* AGUINALDO */
     if (!entrega.AGUINALDO?.ENTREGADO) {
         document.getElementById("btnAguinaldo").onclick = async () => {
-        const cod = document.getElementById("codAguinaldo").value.trim();
-        if (!cod) return alert("Ingrese código");
+        const c = document.getElementById("codAguinaldo").value.trim();
+        if (!c) return alert("Ingrese código");
 
-        await update(ref(db, `aguinaldo/${dni}/ENTREGA/AGUINALDO`), {
-            ENTREGADO: true,
-            CODIGO: cod,
-            FECHA: new Date().toISOString()
+        await update(ref(db,`aguinaldo/${dni}/ENTREGA/AGUINALDO`),{
+            ENTREGADO:true,
+            CODIGO:c,
+            FECHA:new Date().toISOString()
         });
-
         alert("Aguinaldo registrado ✔");
+        document.getElementById("btnConsultar").click();
         };
     }
 
     /* PANETON */
     if (!entrega.PANETON?.ENTREGADO) {
         document.getElementById("btnPaneton").onclick = async () => {
-        await update(ref(db, `aguinaldo/${dni}/ENTREGA/PANETON`), {
-            ENTREGADO: true,
-            FECHA: new Date().toISOString()
+        await update(ref(db,`aguinaldo/${dni}/ENTREGA/PANETON`),{
+            ENTREGADO:true,
+            FECHA:new Date().toISOString()
         });
-
         alert("Panetón registrado ✔");
+        document.getElementById("btnConsultar").click();
         };
     }
 
-    /* HIJOS */
-    if (hijos > 0 && !entrega.HIJOS?.ENTREGADO) {
-        document.getElementById("btnHijos").onclick = async () => {
-        const codigos = [...document.querySelectorAll(".codHijo")].map(i => i.value.trim());
-        if (codigos.some(c => !c)) return alert("Complete todos los códigos");
+    /* TARJETAS HIJOS */
+    if (hijos > 0 && !tarjetasEntregadas) {
+        document.getElementById("btnTarjetasHijos").onclick = async () => {
+        const inputs = document.querySelectorAll(".codigoHijo");
+        let data = {};
 
-        await update(ref(db, `aguinaldo/${dni}/ENTREGA/HIJOS`), {
-            ENTREGADO: true,
-            CODIGOS: codigos,
-            PANETONCITOS: r.PANETONCITO,
-            SORPRESAS: r.SORPRESA,
-            FECHA: new Date().toISOString()
+        for (let i of inputs) {
+            if (!i.value.trim()) {
+            return alert("Debe ingresar todos los códigos de los hijos");
+            }
+            data[`hijo${i.dataset.hijo}`] = i.value.trim();
+        }
+
+        await update(ref(db,`aguinaldo/${dni}/ENTREGA/HIJOS/TARJETAS`),{
+            ENTREGADO:true,
+            CODIGOS:data,
+            FECHA:new Date().toISOString()
         });
 
-        alert("Entrega por hijos registrada ✔");
+        alert("Tarjetas hijos registradas ✔");
+        document.getElementById("btnConsultar").click();
         };
     }
-    };
 
-    /* EXPORTAR */
-    btnExportar.onclick = () => {
-    let csv = "DNI,NOMBRE,AGUINALDO,PANETON,HIJOS\n";
-    Object.entries(invitados).forEach(([dni, r]) => {
-        csv += `${dni},"${r["APELLIDOS Y NOMBRES"]}",${r.ENTREGA?.AGUINALDO?.ENTREGADO ? "SI" : "NO"},${r.ENTREGA?.PANETON?.ENTREGADO ? "SI" : "NO"},${r.HIJOS}\n`;
-    });
+    /* PANETONCITOS */
+    if (hijos > 0 && !entrega.HIJOS?.PANETONCITO?.ENTREGADO) {
+        document.getElementById("btnPanetoncito").onclick = async () => {
+        await update(ref(db,`aguinaldo/${dni}/ENTREGA/HIJOS/PANETONCITO`),{
+            ENTREGADO:true,
+            FECHA:new Date().toISOString()
+        });
+        alert("Panetoncitos entregados ✔");
+        document.getElementById("btnConsultar").click();
+        };
+    }
 
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "reporte_aguinaldos.csv";
-    a.click();
+    /* SORPRESAS */
+    if (hijos > 0 && !entrega.HIJOS?.SORPRESA?.ENTREGADO) {
+        document.getElementById("btnSorpresa").onclick = async () => {
+        await update(ref(db,`aguinaldo/${dni}/ENTREGA/HIJOS/SORPRESA`),{
+            ENTREGADO:true,
+            FECHA:new Date().toISOString()
+        });
+        alert("Sorpresas entregadas ✔");
+        document.getElementById("btnConsultar").click();
+        };
+    }
     };
     </script>
 
     </body>
     </html>
+
