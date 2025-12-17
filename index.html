@@ -11,6 +11,7 @@
     padding: 16px;
     background: #f5f5f9;
     }
+
     h2 { margin-bottom: 6px; }
 
     .card {
@@ -71,6 +72,7 @@
     }
     .stat-label { font-size: 0.75rem; color: #555; }
     .stat-value { font-size: 1.4rem; font-weight: 700; }
+
     hr { margin: 14px 0; }
     </style>
     </head>
@@ -115,7 +117,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-    /* FIREBASE */
     const firebaseConfig = {
     apiKey: "AIzaSyAzq_xY_ne792xmhgDle_riU6qs471jjcw",
     authDomain: "aguinaldos-d782e.firebaseapp.com",
@@ -129,7 +130,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    /* DOM */
     const dniInput = document.getElementById("dniInput");
     const resultado = document.getElementById("resultado");
 
@@ -140,9 +140,6 @@
 
     let cache = [];
 
-    /* ======================
-    CARGA DE DATOS
-    ====================== */
     onValue(ref(db, "aguinaldo"), snap => {
     cache = [];
     let col=0,h=0,a=0,p=0;
@@ -164,10 +161,7 @@
     totPaneton.textContent = p;
     });
 
-    /* ======================
-    CONSULTA
-    ====================== */
-    document.getElementById("btnConsultar").onclick = () => {
+    btnConsultar.onclick = () => {
     const dni = dniInput.value.trim();
     resultado.innerHTML = "";
 
@@ -183,138 +177,134 @@
 
     let inputsHijos = "";
     if (hijos > 0) {
-        for (let i = 1; i <= hijos; i++) {
+        for (let i=1;i<=hijos;i++) {
         inputsHijos += `
-            <label>Código tarjeta hijo ${i}</label>
-            <input class="codigoHijo"
-            data-hijo="${i}"
-            ${tarjetasEntregadas ? "disabled" : ""}
-            value="${tarjetasEntregadas ? (entrega.HIJOS?.TARJETAS?.CODIGOS?.[`hijo${i}`] || "") : ""}">
+        <label>Código tarjeta hijo ${i}</label>
+        <input class="codigoHijo" data-hijo="${i}"
+        value="${entrega.HIJOS?.TARJETAS?.CODIGOS?.[`hijo${i}`] || ""}"
+        ${tarjetasEntregadas ? "disabled" : ""}>
         `;
         }
     }
 
     resultado.innerHTML = `
+    <p><strong>${r["APELLIDOS Y NOMBRES"]}</strong></p>
+    <p>Planilla: ${r.PLANILLA}</p>
+    <p>Aguinaldo: ${r.AGUINALDO}</p>
+    <p>Panetón grande: ${r.PANETON}</p>
 
-        <p><strong>${r["APELLIDOS Y NOMBRES"]}</strong></p>
-        <p>Planilla: ${r.PLANILLA}</p>
-        <p>Aguinaldo: ${r.AGUINALDO}</p>
-        <p>Panetón grande: ${r.PANETON}</p>
+    <hr>
+    <label>Código Aguinaldo</label>
+    <input id="codAguinaldo" value="${entrega.AGUINALDO?.CODIGO || ""}" ${entrega.AGUINALDO?.ENTREGADO?"disabled":""}>
 
-        <hr>
-        <label>Código Aguinaldo</label>
-        <input id="codAguinaldo" ${entrega.AGUINALDO?.ENTREGADO?"disabled":""}>
-        <button id="btnAguinaldo" class="success"
-        ${entrega.AGUINALDO?.ENTREGADO?"disabled":""}>
+    <button id="btnAguinaldo" class="success" ${entrega.AGUINALDO?.ENTREGADO?"disabled":""}>
         ${entrega.AGUINALDO?.ENTREGADO?"Aguinaldo entregado":"Registrar aguinaldo"}
-        </button>
+    </button>
 
-        <button id="btnPaneton" class="success"
-        ${entrega.PANETON?.ENTREGADO?"disabled":""}>
+    ${entrega.AGUINALDO?.ENTREGADO?`<button id="btnEditarAguinaldo" class="secondary">✏️ Editar código</button>`:""}
+
+    <button id="btnPaneton" class="success" ${entrega.PANETON?.ENTREGADO?"disabled":""}>
         ${entrega.PANETON?.ENTREGADO?"Panetón entregado":"Confirmar panetón"}
-        </button>
+    </button>
 
-        ${hijos > 0 ? `
-        <hr>
-        <strong>Tarjetas por hijo</strong>
-        ${inputsHijos}
-        <button id="btnTarjetasHijos" class="success"
-            ${tarjetasEntregadas ? "disabled" : ""}>
-            ${tarjetasEntregadas ? "Tarjetas hijos registradas" : "Registrar tarjetas hijos"}
-        </button>
+    ${hijos>0?`
+    <hr>
+    <strong>Tarjetas por hijo</strong>
+    ${inputsHijos}
+    <button id="btnTarjetasHijos" class="success" ${tarjetasEntregadas?"disabled":""}>
+        ${tarjetasEntregadas?"Tarjetas hijos registradas":"Registrar tarjetas hijos"}
+    </button>
+    ${tarjetasEntregadas?`<button id="btnEditarTarjetas" class="secondary">✏️ Editar códigos hijos</button>`:""}
 
-        <hr>
-        <strong>Otros</strong>
-        <button id="btnPanetoncito" class="success"
-            ${entrega.HIJOS?.PANETONCITO?.ENTREGADO?"disabled":""}>
-            ${entrega.HIJOS?.PANETONCITO?.ENTREGADO?"Panetoncitos entregados":"Confirmar panetoncitos"}
-        </button>
-
-        <button id="btnSorpresa" class="success"
-            ${entrega.HIJOS?.SORPRESA?.ENTREGADO?"disabled":""}>
-            ${entrega.HIJOS?.SORPRESA?.ENTREGADO?"Sorpresas entregadas":"Confirmar sorpresas"}
-        </button>
-        ` : ""}
+    <hr>
+    <strong>Otros</strong>
+    <button id="btnPanetoncito" class="success" ${entrega.HIJOS?.PANETONCITO?.ENTREGADO?"disabled":""}>
+        ${entrega.HIJOS?.PANETONCITO?.ENTREGADO?"Panetoncitos entregados":"Confirmar panetoncitos"}
+    </button>
+    <button id="btnSorpresa" class="success" ${entrega.HIJOS?.SORPRESA?.ENTREGADO?"disabled":""}>
+        ${entrega.HIJOS?.SORPRESA?.ENTREGADO?"Sorpresas entregadas":"Confirmar sorpresas"}
+    </button>
+    `:""}
     `;
 
-    /* AGUINALDO */
     if (!entrega.AGUINALDO?.ENTREGADO) {
-        document.getElementById("btnAguinaldo").onclick = async () => {
-        const c = document.getElementById("codAguinaldo").value.trim();
-        if (!c) return alert("Ingrese código");
-
+        btnAguinaldo.onclick = async () => {
+        if (!codAguinaldo.value.trim()) return alert("Ingrese código");
         await update(ref(db,`aguinaldo/${dni}/ENTREGA/AGUINALDO`),{
             ENTREGADO:true,
-            CODIGO:c,
+            CODIGO:codAguinaldo.value.trim(),
             FECHA:new Date().toISOString()
         });
-        alert("Aguinaldo registrado ✔");
-        document.getElementById("btnConsultar").click();
+        btnConsultar.click();
         };
     }
 
-    /* PANETON */
-    if (!entrega.PANETON?.ENTREGADO) {
-        document.getElementById("btnPaneton").onclick = async () => {
-        await update(ref(db,`aguinaldo/${dni}/ENTREGA/PANETON`),{
-            ENTREGADO:true,
-            FECHA:new Date().toISOString()
-        });
-        alert("Panetón registrado ✔");
-        document.getElementById("btnConsultar").click();
+    if (entrega.AGUINALDO?.ENTREGADO) {
+        btnEditarAguinaldo.onclick = () => {
+        codAguinaldo.disabled = false;
+        btnAguinaldo.disabled = false;
+        btnAguinaldo.textContent = "Guardar nuevo código";
+        btnAguinaldo.onclick = async () => {
+            await update(ref(db,`aguinaldo/${dni}/ENTREGA/AGUINALDO`),{
+            CODIGO:codAguinaldo.value.trim(),
+            FECHA_EDITADO:new Date().toISOString()
+            });
+            btnConsultar.click();
+        };
         };
     }
 
-    /* TARJETAS HIJOS */
-    if (hijos > 0 && !tarjetasEntregadas) {
-        document.getElementById("btnTarjetasHijos").onclick = async () => {
-        const inputs = document.querySelectorAll(".codigoHijo");
-        let data = {};
-
-        for (let i of inputs) {
-            if (!i.value.trim()) {
-            return alert("Debe ingresar todos los códigos de los hijos");
-            }
-            data[`hijo${i.dataset.hijo}`] = i.value.trim();
+    if (hijos>0 && !tarjetasEntregadas) {
+        btnTarjetasHijos.onclick = async () => {
+        let data={};
+        for (let i of document.querySelectorAll('.codigoHijo')) {
+            if (!i.value.trim()) return alert("Complete todos los códigos");
+            data[`hijo${i.dataset.hijo}`]=i.value.trim();
         }
-
         await update(ref(db,`aguinaldo/${dni}/ENTREGA/HIJOS/TARJETAS`),{
             ENTREGADO:true,
             CODIGOS:data,
             FECHA:new Date().toISOString()
         });
-
-        alert("Tarjetas hijos registradas ✔");
-        document.getElementById("btnConsultar").click();
+        btnConsultar.click();
         };
     }
 
-    /* PANETONCITOS */
-    if (hijos > 0 && !entrega.HIJOS?.PANETONCITO?.ENTREGADO) {
-        document.getElementById("btnPanetoncito").onclick = async () => {
-        await update(ref(db,`aguinaldo/${dni}/ENTREGA/HIJOS/PANETONCITO`),{
-            ENTREGADO:true,
-            FECHA:new Date().toISOString()
-        });
-        alert("Panetoncitos entregados ✔");
-        document.getElementById("btnConsultar").click();
+    if (tarjetasEntregadas) {
+        btnEditarTarjetas.onclick = () => {
+        document.querySelectorAll('.codigoHijo').forEach(i=>i.disabled=false);
+        btnTarjetasHijos.disabled=false;
+        btnTarjetasHijos.textContent="Guardar nuevos códigos";
+        btnTarjetasHijos.onclick = async () => {
+            let data={};
+            for (let i of document.querySelectorAll('.codigoHijo')) {
+            if (!i.value.trim()) return alert("Complete todos los códigos");
+            data[`hijo${i.dataset.hijo}`]=i.value.trim();
+            }
+            await update(ref(db,`aguinaldo/${dni}/ENTREGA/HIJOS/TARJETAS`),{
+            CODIGOS:data,
+            FECHA_EDITADO:new Date().toISOString()
+            });
+            btnConsultar.click();
+        };
         };
     }
 
-    /* SORPRESAS */
-    if (hijos > 0 && !entrega.HIJOS?.SORPRESA?.ENTREGADO) {
-        document.getElementById("btnSorpresa").onclick = async () => {
-        await update(ref(db,`aguinaldo/${dni}/ENTREGA/HIJOS/SORPRESA`),{
-            ENTREGADO:true,
-            FECHA:new Date().toISOString()
-        });
-        alert("Sorpresas entregadas ✔");
-        document.getElementById("btnConsultar").click();
-        };
-    }
+    if (!entrega.PANETON?.ENTREGADO) btnPaneton.onclick = async()=>{
+        await update(ref(db,`aguinaldo/${dni}/ENTREGA/PANETON`),{ENTREGADO:true,FECHA:new Date().toISOString()});
+        btnConsultar.click();
+    };
+
+    if (hijos>0 && !entrega.HIJOS?.PANETONCITO?.ENTREGADO) btnPanetoncito.onclick = async()=>{
+        await update(ref(db,`aguinaldo/${dni}/ENTREGA/HIJOS/PANETONCITO`),{ENTREGADO:true,FECHA:new Date().toISOString()});
+        btnConsultar.click();
+    };
+
+    if (hijos>0 && !entrega.HIJOS?.SORPRESA?.ENTREGADO) btnSorpresa.onclick = async()=>{
+        await update(ref(db,`aguinaldo/${dni}/ENTREGA/HIJOS/SORPRESA`),{ENTREGADO:true,FECHA:new Date().toISOString()});
+        btnConsultar.click();
+    };
     };
     </script>
-
     </body>
     </html>
-
